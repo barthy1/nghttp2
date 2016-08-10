@@ -118,6 +118,8 @@ struct Connection {
 
   void set_ssl(SSL *ssl);
 
+  size_t estimate_buffer_size() const;
+
   TLSConnection tls;
   ev_io wev;
   ev_io rev;

@@ -27,6 +27,7 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif // HAVE_UNISTD_H
+#include <netinet/tcp.h>
 
 #include <limits>
 
@@ -759,6 +760,50 @@ void Connection::handle_tls_pending_read() {
     return;
   }
   rlimit.handle_tls_pending_read();
+}
+
+size_t Connection::estimate_buffer_size() const {
+  struct tcp_info tcp_info;
+  socklen_t tcp_info_len = sizeof(tcp_info);
+  int rv;
+
+  rv = getsockopt(fd, IPPROTO_TCP, TCP_INFO, &tcp_info, &tcp_info_len);
+
+  if (rv != 0) {
+    return 32_k;
+  }
+
+  auto avail_packets = tcp_info.tcpi_snd_cwnd > tcp_info.tcpi_unacked
+                           ? tcp_info.tcpi_snd_cwnd - tcp_info.tcpi_unacked
+                           : 0;
+
+  // TODO 29 is TLS overhead
+  auto writable_size = (avail_packets + 2) * (tcp_info.tcpi_snd_mss - 29);
+  // TODO is this required?
+  writable_size = std::max(writable_size, static_cast<uint32_t>(536 * 2));
+
+  uint32_t thres = tcp_info.tcpi_snd_cwnd * tcp_info.tcpi_snd_mss + 1;
+
+  if (LOG_ENABLED(INFO)) {
+    LOG(INFO) << "snd_cwnd=" << tcp_info.tcpi_snd_cwnd
+              << ", unacked=" << tcp_info.tcpi_unacked
+              << ", snd_mss=" << tcp_info.tcpi_snd_mss
+              << ", rtt=" << tcp_info.tcpi_rtt << "us"
+              << ", writable=" << writable_size << ", poll_thres=" << thres;
+  }
+
+  rv = setsockopt(fd, IPPROTO_TCP, TCP_NOTSENT_LOWAT, &thres,
+                  static_cast<socklen_t>(sizeof(thres)));
+
+  if (rv != 0) {
+    if (LOG_ENABLED(INFO)) {
+      auto error = errno;
+      LOG(INFO) << "setsockopt(TCP_NOTSENT_LOWAT, " << thres
+                << ") failed: errno=" << error;
+    }
+  }
+
+  return writable_size;
 }
 
 } // namespace shrpx

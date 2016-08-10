@@ -122,6 +122,8 @@ public:
   // pushed stream.
   int adjust_pushed_stream_priority(Downstream *downstream);
 
+  size_t get_max_buffer_size() const;
+
 private:
   DefaultMemchunks wb_;
   std::unique_ptr<HttpsUpstream> pre_upstream_;
@@ -131,6 +133,7 @@ private:
   ev_prepare prep_;
   ClientHandler *handler_;
   nghttp2_session *session_;
+  size_t max_buffer_size_;
   bool flow_control_;
 };
 

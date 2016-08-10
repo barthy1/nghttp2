@@ -745,7 +745,9 @@ int send_data_callback(nghttp2_session *session, nghttp2_frame *frame,
   // data transferred.
   downstream->response_sent_body_length += length;
 
-  return wb->rleft() >= MAX_BUFFER_SIZE ? NGHTTP2_ERR_PAUSE : 0;
+  auto max_buffer_size = upstream->get_max_buffer_size();
+
+  return wb->rleft() > max_buffer_size ? NGHTTP2_ERR_PAUSE : 0;
 }
 } // namespace
 
@@ -885,7 +887,8 @@ Http2Upstream::Http2Upstream(ClientHandler *handler)
       downstream_queue_(downstream_queue_size(handler->get_worker()),
                         !get_config()->http2_proxy),
       handler_(handler),
-      session_(nullptr) {
+      session_(nullptr),
+      max_buffer_size_(MAX_BUFFER_SIZE) {
   int rv;
 
   auto &http2conf = get_config()->http2;
@@ -998,8 +1001,13 @@ int Http2Upstream::on_read() {
 
 // After this function call, downstream may be deleted.
 int Http2Upstream::on_write() {
+  if (handler_->get_ssl()) {
+    auto conn = handler_->get_connection();
+    max_buffer_size_ = std::min(MAX_BUFFER_SIZE, conn->estimate_buffer_size());
+  }
+
   for (;;) {
-    if (wb_.rleft() >= MAX_BUFFER_SIZE) {
+    if (wb_.rleft() >= max_buffer_size_) {
       return 0;
     }
 
@@ -1015,6 +1023,10 @@ int Http2Upstream::on_write() {
       break;
     }
     wb_.append(data, datalen);
+  }
+
+  if (LOG_ENABLED(INFO)) {
+    ULOG(INFO, this) << "transmission buffer size=" << wb_.rleft();
   }
 
   if (nghttp2_session_want_read(session_) == 0 &&
@@ -1219,10 +1231,26 @@ ssize_t downstream_data_read_callback(nghttp2_session *session,
   auto downstream = static_cast<Downstream *>(source->ptr);
   auto body = downstream->get_response_buf();
   assert(body);
+  auto upstream = static_cast<Http2Upstream *>(user_data);
 
   const auto &resp = downstream->response();
 
   auto nread = std::min(body->rleft(), length);
+
+  auto max_buffer_size = upstream->get_max_buffer_size();
+
+  auto buffer = upstream->get_response_buf();
+
+  // At the moment, we have no way to stop sending frame depending on
+  // the buffer size.  As a workaround, if we don't have enough buffer
+  // size left, we only write 256 bytes data.
+  if (max_buffer_size <
+      std::min(nread, static_cast<size_t>(256)) + 9 + buffer->rleft()) {
+    nread = std::min(nread, static_cast<size_t>(256));
+  } else {
+    nread = std::min(nread, max_buffer_size - 9 - buffer->rleft());
+  }
+
   auto body_empty = body->rleft() == nread;
 
   *data_flags |= NGHTTP2_DATA_FLAG_NO_COPY;
@@ -2059,5 +2087,7 @@ void Http2Upstream::cancel_premature_downstream(
   }
   downstream_queue_.remove_and_get_blocked(promised_downstream, false);
 }
+
+size_t Http2Upstream::get_max_buffer_size() const { return max_buffer_size_; }
 
 } // namespace shrpx
