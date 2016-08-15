@@ -3,9 +3,10 @@ RUN apt-get update; apt-get install -y iputils-ping wget xz-utils gcc make g++ m
 
 COPY ./* /root/
 WORKDIR /root/
-RUN autoconf ; ./configure; make; make install; \
-	cp /root/nghttp2-1.12.0/lib/./.libs/libnghttp2.* /usr/lib/; \
-	rm -rf /root/nghttp*
+
+RUN autoreconf -i ; automake ; autoconf ; ./configure; make; make install; \
+	cp /root/lib/./.libs/libnghttp2.* /usr/lib/; \
+	rm -rf /root/*
 
 COPY start.sh /usr/sbin/start.sh
 RUN  chmod +x /usr/sbin/start.sh
