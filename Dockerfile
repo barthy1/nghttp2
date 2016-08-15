@@ -3,7 +3,7 @@ RUN apt-get update; apt-get install -y iputils-ping wget xz-utils gcc make g++ m
 
 COPY ./* /root/
 WORKDIR /root/
-RUN ./configure; make; make install; \
+RUN autoconf ; ./configure; make; make install; \
 	cp /root/nghttp2-1.12.0/lib/./.libs/libnghttp2.* /usr/lib/; \
 	rm -rf /root/nghttp*
 
