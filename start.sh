@@ -5,4 +5,4 @@ if [ -z "$PORT" ]; then
     exit 1
 fi
 
-nghttpx --conf=/opt/nghttpx-$PORT-base.conf 
+nghttpx --conf=/opt/nghttpx-$PORT.conf 
