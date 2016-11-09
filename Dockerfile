@@ -1,5 +1,5 @@
-FROM ubuntu:14.04
-RUN apt-get update; apt-get install -y iputils-ping wget xz-utils gcc make g++ make binutils autoconf automake autotools-dev libtool pkg-config zlib1g-dev libcunit1-dev libssl-dev libxml2-dev libev-dev libevent-dev libjansson-dev libjemalloc-dev cython python3-dev python-setuptools 
+FROM s390x/ubuntu:latest
+RUN apt-get update --fix-missing; apt-get install --fix-missing -y iputils-ping wget xz-utils gcc make g++ make binutils autoconf automake autotools-dev libtool pkg-config zlib1g-dev libssl-dev libxml2-dev libev-dev libevent-dev libjansson-dev libjemalloc-dev python3-dev python-setuptools  python-pip; pip install cython
 
 COPY ./ /root/
 WORKDIR /root/
