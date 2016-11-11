@@ -78,7 +78,7 @@ public:
   virtual int on_downstream_body_complete(Downstream *downstream);
 
   virtual void on_handler_delete();
-  virtual int on_downstream_reset(bool no_retry);
+  virtual int on_downstream_reset(Downstream *downstream, bool no_retry);
   virtual int send_reply(Downstream *downstream, const uint8_t *body,
                          size_t bodylen);
   virtual int initiate_push(Downstream *downstream, const StringRef &uri);
@@ -118,9 +118,7 @@ public:
 
   DefaultMemchunks *get_response_buf();
 
-  // Changes stream priority of |downstream|, which is assumed to be a
-  // pushed stream.
-  int adjust_pushed_stream_priority(Downstream *downstream);
+  size_t get_max_buffer_size() const;
 
 private:
   DefaultMemchunks wb_;
@@ -131,6 +129,7 @@ private:
   ev_prepare prep_;
   ClientHandler *handler_;
   nghttp2_session *session_;
+  size_t max_buffer_size_;
   bool flow_control_;
 };
 

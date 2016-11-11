@@ -58,6 +58,11 @@ To build the documentation, you need to install:
 
 * sphinx (http://sphinx-doc.org/)
 
+If you need libnghttp2 (C library) only, then the above packages are
+all you need.  Use ``--enable-lib-only`` to ensure that only
+libnghttp2 is built.  This avoids potential build error related to
+building bundled applications.
+
 To build and run the application programs (``nghttp``, ``nghttpd``,
 ``nghttpx`` and ``h2load``) in the ``src`` directory, the following packages
 are required:
@@ -1370,7 +1375,7 @@ The extension module is called ``nghttp2``.
 determined by the ``configure`` script.  If the detected Python version is not
 what you expect, specify a path to Python executable in a ``PYTHON``
 variable as an argument to configure script (e.g., ``./configure
-PYTHON=/usr/bin/python3.4``).
+PYTHON=/usr/bin/python3.5``).
 
 The following example code illustrates basic usage of the HPACK compressor
 and decompressor in Python:
@@ -1500,6 +1505,17 @@ See `Contribution Guidelines
 <https://nghttp2.org/documentation/contribute.html>`_ for more
 details.
 
+Reporting vulnerability
+-----------------------
+
+If you find a vulnerability in our software, please send the email to
+"tatsuhiro.t at gmail dot com" about its details instead of submitting
+issues on github issue page.  It is a standard practice not to
+disclose vulnerability information publicly until a fixed version is
+released, or mitigation is worked out.
+
+In the future, we may setup a dedicated mail address for this purpose.
+
 Release schedule
 ----------------
 
@@ -1512,3 +1528,8 @@ severe security bug fixes.
 
 We have no plan to break API compatibility changes involving soname
 bump, so MAJOR version will stay 1 for the foreseeable future.
+
+License
+-------
+
+The MIT License

@@ -100,7 +100,7 @@ MemcachedConnection::MemcachedConnection(const Address *addr,
             connectcb, readcb, timeoutcb, this, 0, 0., PROTO_MEMCACHED),
       do_read_(&MemcachedConnection::noop),
       do_write_(&MemcachedConnection::noop),
-      sni_name_(sni_name.str()),
+      sni_name_(sni_name),
       connect_blocker_(gen, loop, [] {}, [] {}),
       parse_state_{},
       addr_(addr),
@@ -203,14 +203,15 @@ int MemcachedConnection::initiate_connection() {
 }
 
 int MemcachedConnection::connected() {
-  if (!util::check_socket_connected(conn_.fd)) {
+  auto sock_error = util::get_socket_error(conn_.fd);
+  if (sock_error != 0) {
+    MCLOG(WARN, this) << "memcached connect failed; addr="
+                      << util::to_numeric_addr(addr_)
+                      << ": errno=" << sock_error;
+
     connect_blocker_.on_failure();
 
     conn_.wlimit.stopw();
-
-    if (LOG_ENABLED(INFO)) {
-      MCLOG(INFO, this) << "memcached connect failed";
-    }
 
     return -1;
   }
@@ -267,7 +268,7 @@ int MemcachedConnection::tls_handshake() {
   auto &tlsconf = get_config()->tls;
 
   if (!tlsconf.insecure &&
-      ssl::check_cert(conn_.tls.ssl, addr_, StringRef(sni_name_)) != 0) {
+      ssl::check_cert(conn_.tls.ssl, addr_, sni_name_) != 0) {
     connect_blocker_.on_failure();
     return -1;
   }
@@ -551,8 +552,8 @@ int MemcachedConnection::parse_packet() {
 
       if (LOG_ENABLED(INFO)) {
         if (parse_state_.status_code) {
-          MCLOG(INFO, this)
-              << "response returned error status: " << parse_state_.status_code;
+          MCLOG(INFO, this) << "response returned error status: "
+                            << parse_state_.status_code;
         }
       }
 

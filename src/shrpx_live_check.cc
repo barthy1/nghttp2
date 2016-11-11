@@ -252,17 +252,21 @@ int LiveCheck::initiate_connection() {
 
   conn_.wlimit.startw();
 
-  // TODO we should have timeout for connection establishment
+  auto &downstreamconf = *get_config()->conn.downstream;
+
+  conn_.wt.repeat = downstreamconf.timeout.connect;
   ev_timer_again(conn_.loop, &conn_.wt);
 
   return 0;
 }
 
 int LiveCheck::connected() {
-  if (!util::check_socket_connected(conn_.fd)) {
+  auto sock_error = util::get_socket_error(conn_.fd);
+  if (sock_error != 0) {
     if (LOG_ENABLED(INFO)) {
       LOG(INFO) << "Backend connect failed; addr="
-                << util::to_numeric_addr(&addr_->addr);
+                << util::to_numeric_addr(&addr_->addr)
+                << ": errno=" << sock_error;
     }
 
     return -1;
@@ -271,6 +275,12 @@ int LiveCheck::connected() {
   if (LOG_ENABLED(INFO)) {
     LOG(INFO) << "Connection established";
   }
+
+  auto &downstreamconf = *get_config()->conn.downstream;
+
+  // Reset timeout for write.  Previously, we set timeout for connect.
+  conn_.wt.repeat = downstreamconf.timeout.write;
+  ev_timer_again(conn_.loop, &conn_.wt);
 
   conn_.rlimit.startw();
 

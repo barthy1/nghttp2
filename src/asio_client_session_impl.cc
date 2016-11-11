@@ -503,7 +503,7 @@ const request *session_impl::submit(boost::system::error_code &ec,
   }
 
   auto nva = std::vector<nghttp2_nv>();
-  nva.reserve(3 + h.size());
+  nva.reserve(4 + h.size());
   nva.push_back(http2::make_nv_ls(":method", method));
   nva.push_back(http2::make_nv_ls(":scheme", uref.scheme));
   nva.push_back(http2::make_nv_ls(":path", path));
@@ -521,13 +521,13 @@ const request *session_impl::submit(boost::system::error_code &ec,
   if (cb) {
     strm->request().impl().on_read(std::move(cb));
     prd.source.ptr = strm.get();
-    prd.read_callback =
-        [](nghttp2_session *session, int32_t stream_id, uint8_t *buf,
-           size_t length, uint32_t *data_flags, nghttp2_data_source *source,
-           void *user_data) -> ssize_t {
-          auto strm = static_cast<stream *>(source->ptr);
-          return strm->request().impl().call_on_read(buf, length, data_flags);
-        };
+    prd.read_callback = [](nghttp2_session *session, int32_t stream_id,
+                           uint8_t *buf, size_t length, uint32_t *data_flags,
+                           nghttp2_data_source *source,
+                           void *user_data) -> ssize_t {
+      auto strm = static_cast<stream *>(source->ptr);
+      return strm->request().impl().call_on_read(buf, length, data_flags);
+    };
     prdptr = &prd;
   }
 
